@@ -26,16 +26,15 @@ var (
 	semCounter  int
 )
 
-// checkErr Error controler
+// checkErr control the error exiting when it's triggered.
 func checkErr(e error) {
 	if e != nil {
 		panic(e)
 	}
 }
 
-// Initialization
+// Initialize channels and load dictionary
 func init() {
-	// init dictionary
 	inputDict = make(tInputDict)
 	f, err := os.Open(filenameDict)
 	checkErr(err)
@@ -56,6 +55,7 @@ func init() {
 	semCounter = 1
 }
 
+// outputHandler control the output file, writing line processed.
 func outputHandler() {
 	f, err := os.Create(filenameOutput)
 	if err != nil {
@@ -81,9 +81,10 @@ func outputHandler() {
 	}
 }
 
+// lineProcessor process line sending newLine to the output bus.
 func lineProcessor(line string) {
 	lineNew := ""
-	re := regexp.MustCompile("[^A-Za-z]+")
+	re := regexp.MustCompile("[^A-Za-z0-9]+")
 	matchall := re.Split(line, -1)
 	submatchall := re.FindAllString(line, -1)
 	for i, v := range matchall {
@@ -103,8 +104,8 @@ func lineProcessor(line string) {
 	chOutFile <- lineNew
 }
 
+// lineHandler handles processor chanel and dispatch to processor function.
 func lineHandler() {
-
 	for {
 		select {
 		case line := <-chProcessor:
@@ -113,9 +114,9 @@ func lineHandler() {
 	}
 }
 
+// readInput reads the input file and send it to processor
 func readInput() {
 
-	// read input
 	f, err := os.Open(filenameInput)
 	checkErr(err)
 	defer f.Close()
@@ -133,25 +134,26 @@ func readInput() {
 	semControl <- -1
 }
 
+// semControler controls the semaphore.
 func semControler() {
-
 	for {
 		select {
 		case cn := <-semControl:
 			semCounter += cn
 		}
 	}
-
 }
 
 func main() {
-
+	// start all processor handlers
 	go lineHandler()
 	go outputHandler()
 	go semControler()
+
+	// read data set
 	readInput()
 
-	// semaphore controler, wait all writers
+	// wait to processor threads finishes.
 	for {
 		if semCounter == 0 {
 			break
