@@ -41,6 +41,7 @@ func checkErr(e error, msg string, panicEnabled bool) {
 // Initialize channels and load dictionary
 func init() {
 	defer timeTrack(timeRunning("init()"))
+
 	inputDict = make(tInputDict)
 	f, err := os.Open(filenameDict)
 	checkErr(err, "reading dict", true)
@@ -64,6 +65,7 @@ func init() {
 // outputHandler control the output file, writing line processed.
 func outputHandler() {
 	defer timeTrack(timeRunning("outputHandler()"))
+
 	f, err := os.Create(filenameOutput)
 	checkErr(err, "writing output file", true)
 	defer f.Close()
@@ -108,6 +110,7 @@ func lineProcessor(line string) {
 // lineHandler handles processor chanel and dispatch to processor function.
 func lineHandler() {
 	defer timeTrack(timeRunning("lineHandler()"))
+
 	for {
 		select {
 		case line := <-chProcessor:
@@ -119,6 +122,7 @@ func lineHandler() {
 // readInput reads the input file and send it to processor
 func readInput() {
 	defer timeTrack(timeRunning("readInput()"))
+
 	f, err := os.Open(filenameInput)
 	checkErr(err, "reading input", true)
 	defer f.Close()
@@ -162,9 +166,9 @@ func main() {
 	defer timeTrack(timeRunning("Main()"))
 
 	// start all processor handlers
+	go semControler()
 	go lineHandler()
 	go outputHandler()
-	go semControler()
 
 	// read data set
 	readInput()
