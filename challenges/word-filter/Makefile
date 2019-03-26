@@ -29,7 +29,7 @@ clean:
 
 
 build:
-	go build
+	@go build
 
 run:
-	./word-filter
+	@./word-filter

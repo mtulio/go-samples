@@ -3,9 +3,11 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type tInputDict map[string]int
@@ -27,17 +29,21 @@ var (
 )
 
 // checkErr control the error exiting when it's triggered.
-func checkErr(e error) {
+func checkErr(e error, msg string, panicEnabled bool) {
 	if e != nil {
-		panic(e)
+		log.Println("Error: ", msg)
+		if panicEnabled {
+			panic(e)
+		}
 	}
 }
 
 // Initialize channels and load dictionary
 func init() {
+	defer timeTrack(timeRunning("init()"))
 	inputDict = make(tInputDict)
 	f, err := os.Open(filenameDict)
-	checkErr(err)
+	checkErr(err, "reading dict", true)
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
@@ -57,12 +63,9 @@ func init() {
 
 // outputHandler control the output file, writing line processed.
 func outputHandler() {
+	defer timeTrack(timeRunning("outputHandler()"))
 	f, err := os.Create(filenameOutput)
-	if err != nil {
-		fmt.Println("Error writing output file")
-		return
-	}
-
+	checkErr(err, "writing output file", true)
 	defer f.Close()
 
 	for {
@@ -70,11 +73,9 @@ func outputHandler() {
 		case line := <-chOutFile:
 			f.Sync()
 			w := bufio.NewWriter(f)
-			nb, err := w.WriteString(fmt.Sprintf("%s\n", line))
-			if err != nil {
-				fmt.Println(err)
-			}
-			fmt.Printf("wrote %d bytes\n", nb)
+			_, err := w.WriteString(fmt.Sprintf("%s\n", line))
+			checkErr(err, "writing line", false)
+			// log.Printf("wrote %d bytes\n", nb)
 			w.Flush()
 			semControl <- -1
 		}
@@ -106,6 +107,7 @@ func lineProcessor(line string) {
 
 // lineHandler handles processor chanel and dispatch to processor function.
 func lineHandler() {
+	defer timeTrack(timeRunning("lineHandler()"))
 	for {
 		select {
 		case line := <-chProcessor:
@@ -116,9 +118,9 @@ func lineHandler() {
 
 // readInput reads the input file and send it to processor
 func readInput() {
-
+	defer timeTrack(timeRunning("readInput()"))
 	f, err := os.Open(filenameInput)
-	checkErr(err)
+	checkErr(err, "reading input", true)
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
@@ -129,13 +131,15 @@ func readInput() {
 	}
 
 	if err := scanner.Err(); err != nil {
-		fmt.Fprintln(os.Stderr, "reading standard input:", err)
+		// fmt.Fprintln(os.Stderr, "reading standard input:", err)
+		checkErr(err, "reading standard input: ", false)
 	}
 	semControl <- -1
 }
 
 // semControler controls the semaphore.
 func semControler() {
+	defer timeTrack(timeRunning("semControler()"))
 	for {
 		select {
 		case cn := <-semControl:
@@ -144,7 +148,19 @@ func semControler() {
 	}
 }
 
+func timeRunning(s string) (string, time.Time) {
+	log.Println("Start:", s)
+	return s, time.Now()
+}
+
+func timeTrack(s string, startTime time.Time) {
+	endTime := time.Now()
+	log.Println("End:", s, "took", endTime.Sub(startTime))
+}
+
 func main() {
+	defer timeTrack(timeRunning("Main()"))
+
 	// start all processor handlers
 	go lineHandler()
 	go outputHandler()
